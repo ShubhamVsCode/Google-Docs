@@ -1,0 +1,11 @@
+#docs {
+  font-family: Verdana, Geneva, Tahoma, sans-serif;
+  font-size: 20px;
+  width: max(60vw, 600px);
+  height: 100vh;
+  margin: auto;
+}
+
+.container {
+  text-align: center;
+}
