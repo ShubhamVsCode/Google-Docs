@@ -3,7 +3,7 @@ const app = express();
 const http = require("http").Server(app);
 const io = require("socket.io")(http, {
   cors: {
-    origin: "*",
+    origin: "https://guileless-lebkuchen-42e91f.netlify.app",
   },
 });
 
