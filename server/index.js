@@ -9,6 +9,10 @@ const io = require("socket.io")(http, {
 
 let documentContent = "";
 
+app.get("/info", (req, res) => {
+  res.send("Server running ");
+});
+
 io.on("connection", (socket) => {
   console.log("User connected\n");
 
