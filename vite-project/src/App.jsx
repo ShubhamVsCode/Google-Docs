@@ -30,7 +30,8 @@ function App() {
   }, [quillRef]);
 
   useEffect(() => {
-    const s = io("http://localhost:3000");
+    // const s = io("http://localhost:3000");
+    const s = io("https://google-docs-production-6f29.up.railway.app/");
     setSocket(s);
 
     return () => {
