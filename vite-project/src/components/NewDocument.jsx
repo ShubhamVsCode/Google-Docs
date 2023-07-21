@@ -20,7 +20,8 @@ const NewDocument = ({ documentId }) => {
   };
 
   useEffect(() => {
-    const s = io("http://localhost:3000");
+    // const s = io("http://localhost:3000");
+    const s = io("https://google-docs-abot.onrender.com/");
     setSocket(s);
   }, []);
 
