@@ -20,7 +20,10 @@ app.use(express.json());
 app.use(
   cors({
     credentials: true,
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://guileless-lebkuchen-42e91f.netlify.app",
+    ],
   })
 );
 app.use(cookieParser());
