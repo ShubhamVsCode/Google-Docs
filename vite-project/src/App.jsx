@@ -1,27 +1,28 @@
 import { useState, useEffect, useRef } from "react";
-import "./App.css";
 import io from "socket.io-client";
 
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
-function App() {
+function App({ documentId }) {
   const [content, setContent] = useState("");
   const [socket, setSocket] = useState(null);
   const [quillEditor, setQuillEditor] = useState(null);
-  const [username, setUsername] = useState("");
-  // const [username, setUsername] = useState(window.prompt());
+  const [username, setUsername] = useState(
+    JSON.parse(localStorage.getItem("user"))?.name
+  );
   const [users, setUsers] = useState([]);
 
   const quillRef = useRef();
 
   useEffect(() => {
-    if (quillRef === null || socket === null) return;
+    // if (quillRef === null || socket === null) return;
 
-    socket.on("new-change", (delta) => {
+    socket?.on("text-change", (delta) => {
+      console.log(delta);
       quillEditor?.updateContents(delta);
     });
-  }, [content, quillRef, socket]);
+  }, [socket]);
 
   useEffect(() => {
     // if (!quillEditor) {
@@ -29,73 +30,96 @@ function App() {
     // }
   }, [quillRef]);
 
-  useEffect(() => {
-    // const s = io("http://localhost:3000");
-    const s = io("https://google-docs-abot.onrender.com");
-    setSocket(s);
-
-    return () => {
-      s.disconnect();
-    };
-  }, []);
-
   const handleInputChange = (value, delta, source, quill) => {
     if (source !== "user") return;
-    socket.emit("text-change", delta);
+    socket?.emit("text-change", { documentId, delta });
   };
 
   const submitUsername = () => {
-    socket.emit("username", username);
+    socket?.emit("username", username);
   };
 
   useEffect(() => {
-    socket?.on("get-username", (username) => {
+    if (quillRef === null || socket === null) return;
+
+    // Join the document room on mount
+    socket?.emit("join-document", { documentId: documentId, username });
+
+    return () => {
+      // Leave the document room on unmount
+      socket?.emit("leave-document", {
+        documentId: documentId,
+        username,
+      });
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    const quillEditor = quillRef.current.getEditor();
+
+    quillEditor.on("selection-change", (range) => {
+      socket?.emit("selection-change", { selection: range, username });
+    });
+
+    return () => {
+      quillEditor.off("selection-change");
+    };
+  }, [quillRef, socket]);
+
+  useEffect(() => {
+    const socket = io("http://localhost:3000");
+    setSocket(socket);
+
+    socket.on("connect", () => {
+      console.log("Connected to the server");
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from the server");
+    });
+
+    // socket.on("document-content", (documentContent) => {
+    //   setContent(documentContent);
+    // });
+
+    // socket.on("text-change", (delta) => {
+    //   setContent(delta);
+    // });
+
+    socket.on("user-joined", (username) => {
       setUsers((prev) => [...prev, username]);
     });
 
-    socket?.on("selection-change", ({ selection, username }) => {
-      console.log(username, selection);
-
-      const text = quillEditor?.getText(selection.index, selection.length);
-      console.log("User has highlighted: ", text);
+    socket.on("user-left", (username) => {
+      setUsers((prev) => prev.filter((user) => user !== username));
     });
 
-    quillEditor?.on("selection-change", (selection) => {
-      socket.emit("selection-change", { selection, username });
-    });
-
-    let range = quillEditor?.getSelection();
-    // console.log(quillEditor?.selection);
-    if (range) {
-      if (range.length == 0) {
-        console.log("User cursor is at index", range.index);
-      } else {
-        var text = quill.getText(range.index, range.length);
-        console.log("User has highlighted: ", text);
-      }
-    } else {
-      console.log("User cursor is not in editor");
-    }
-  }, [socket]);
+    return () => {
+      socket.off("document-content");
+      socket.off("text-change");
+      socket.off("user-joined");
+      socket.off("user-left");
+    };
+  }, []);
 
   return (
-    <div className="container">
-      {/* <input type="text" onChange={(e) => setUsername(e.target.value)} />
-      <button onClick={submitUsername}>Set UserName</button> */}
-      {/* {JSON.stringify(users, null, 2)} */}
-      <h1>Google Dcos</h1>
-      <ReactQuill
-        theme="snow"
-        value={content}
-        onChangeSelection={(selection, source, editor) => {
-          if (source === "user") {
-            console.log("Selection", selection);
-          }
-        }}
-        onChange={handleInputChange}
-        ref={quillRef}
-        id="docs"
-      />
+    <div className="text-center">
+      {/* {JSON.stringify(users)} */}
+      <div className="max-w-6xl m-auto border-black border rounded-lg">
+        <ReactQuill
+          theme="snow"
+          className="min-h-screen"
+          value={content}
+          onChangeSelection={(selection, source, editor) => {
+            if (source === "user") {
+              console.log("Selection", selection);
+            }
+          }}
+          onChange={handleInputChange}
+          ref={quillRef}
+          id="docs"
+        />
+      </div>
     </div>
   );
 }

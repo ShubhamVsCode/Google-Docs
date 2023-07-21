@@ -1,46 +1,56 @@
+require("dotenv").config();
 const express = require("express");
+const mongoose = require("mongoose");
+const cookieParser = require("cookie-parser");
+const cors = require("cors");
 const app = express();
 const http = require("http").Server(app);
 const io = require("socket.io")(http, {
   cors: {
-    origin: "https://guileless-lebkuchen-42e91f.netlify.app",
+    origin: "*",
+    // origin: ["https://guileless-lebkuchen-42e91f.netlify.app"],
   },
 });
 
-let documentContent = "";
+const authRoutes = require("./routes/auth");
+const documentRoutes = require("./routes/document");
+const { socketHandler } = require("./sockets/socketHandler");
 
+app.use(express.json());
+app.use(
+  cors({
+    credentials: true,
+    origin: "http://localhost:5173",
+  })
+);
+app.use(cookieParser());
+
+mongoose
+  .connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((error) => console.error("Failed to connect to MongoDB", error));
+
+// HTTP API Routes
 app.get("/info", (req, res) => {
-  res.send("Server running ");
+  return res.send("Server running ");
 });
+app.use("/api", authRoutes);
+app.use("/api/documents", documentRoutes);
 
-io.on("connection", (socket) => {
-  console.log("User connected\n");
-
-  socket.on("username", (username) => {
-    console.log(username);
-    socket.broadcast.emit("get-username", username);
-  });
-
-  socket.on("text-change", (delta) => {
-    socket.broadcast.emit("new-change", delta);
-  });
-
-  socket.on("selection-change", ({ selection, username }) => {
-    socket.broadcast.emit("selection-change", { selection, username });
-  });
-
-  // Handle updates from the client
-  socket.on("update", (content) => {
-    // Update the document content
-    documentContent = content;
-
-    // Broadcast the updated content to all connected clients
-    socket.broadcast.emit("content", content);
-  });
-});
+// Web Sockets
+io.on("connection", socketHandler);
 
 io.on("disconnect", () => {
   console.log("User disconnected");
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.message);
+  res.status(500).json({ message: "Internal server error" });
 });
 
 // Start the server
