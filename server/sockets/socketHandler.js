@@ -2,13 +2,15 @@ const Document = require("../model/documentModel");
 const applyDeltaChanges = require("../utils/jsonPatch");
 const { mergeDeltas } = require("../utils/textEditing");
 
+const deltaQueue = {};
+
 const socketHandler = (socket) => {
   socket.on("join-document", async ({ documentId, user }) => {
     try {
       // Join the document room
       socket.join(documentId);
 
-      console.log(`User: ${user?.name || user} joined Document: ${documentId}`);
+      console.log(`User: ${user?.name || user} Joined Document: ${documentId}`);
 
       // Broadcast to other users in the document room that a user has joined
       socket.to(documentId).emit("user-joined", user);
@@ -39,9 +41,32 @@ const socketHandler = (socket) => {
     try {
       // Broadcast the text change to all users in the document room
       socket.to(documentId).emit("text-change", delta);
-      const document = await Document.findById(documentId);
-      document.changes.push(delta);
-      await document.save();
+
+      // Store the delta in the queue for the specific documentId
+      if (!deltaQueue[documentId]) {
+        deltaQueue[documentId] = [];
+      }
+      deltaQueue[documentId].push(delta);
+
+      // If there's no timer set for the documentId, set one to save deltas after 2 seconds
+      if (!deltaQueue[documentId].timer) {
+        socket.to(documentId).emit("saving-document", true);
+        console.log("Saving document: ", documentId);
+        deltaQueue[documentId].timer = setTimeout(async () => {
+          try {
+            // console.log("================================");
+            // console.log(deltaQueue[documentId]);
+            const document = await Document.findById(documentId);
+            document.changes.push(...deltaQueue[documentId]);
+            await document.save();
+            socket.to(documentId).emit("saving-document", false);
+            // Clear the queue and timer for this documentId
+            delete deltaQueue[documentId];
+          } catch (error) {
+            console.error("Error saving text changes:", error);
+          }
+        }, 2000); // 1000ms delay
+      }
     } catch (error) {
       console.error("Error handling text change:", error);
     }

@@ -55,38 +55,29 @@ const Navbar = () => {
   }, []);
 
   return (
-    <nav className="flex justify-between">
-      <ul className="flex gap-10 px-20 py-5 border-b">
+    <nav className="">
+      <ul className="flex gap-10 px-20 py-5 border-b justify-between">
         <li>
-          <NavLink exact to="/" activeClassName="active">
+          <NavLink exact={"true"} to="/">
             Home
           </NavLink>
         </li>
+        {user?.email && <div className="flex gap-10">Email: {user?.email}</div>}
         {userToken ? (
           <li>
             <button onClick={logout}>Logout</button>
           </li>
         ) : (
-          <>
+          <div className="flex gap-10">
             <li>
-              <NavLink to="/login" activeClassName="active">
-                Login
-              </NavLink>
+              <NavLink to="/login">Login</NavLink>
             </li>
             <li>
-              <NavLink to="/register" activeClassName="active">
-                Register
-              </NavLink>
+              <NavLink to="/register">Register</NavLink>
             </li>
-          </>
+          </div>
         )}
       </ul>
-
-      {/* {userToken && (
-        <div className="flex gap-10">
-          Email : <span>{user?.email}</span>
-        </div>
-      )} */}
     </nav>
   );
 };
