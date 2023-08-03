@@ -11,7 +11,6 @@ const DocumentPage = () => {
 
   return (
     <div>
-      {/* <App documentId={documentId} /> */}
       <NewDocument documentId={documentId} />
     </div>
   );

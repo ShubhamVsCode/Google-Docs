@@ -1,6 +1,13 @@
 @tailwind base;
+
 @tailwind components;
 @tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap");
+
+* {
+  font-family: "Quicksand", sans-serif;
+}
 
 #docs .ql-editor {
   min-height: 100vh;
@@ -8,5 +15,9 @@
 }
 
 #docs .ql-toolbar.ql-snow {
+  border: none;
+}
+
+.ql-container.ql-snow {
   border: none;
 }

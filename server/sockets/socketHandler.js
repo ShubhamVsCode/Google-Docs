@@ -1,4 +1,5 @@
 const Document = require("../model/documentModel");
+const User = require("../model/userModel");
 const applyDeltaChanges = require("../utils/jsonPatch");
 const { mergeDeltas } = require("../utils/textEditing");
 
@@ -9,6 +10,7 @@ const socketHandler = (socket) => {
     try {
       // Join the document room
       socket.join(documentId);
+      // socket.join(user?.email);
 
       console.log(`User: ${user?.name || user} Joined Document: ${documentId}`);
 
@@ -29,7 +31,7 @@ const socketHandler = (socket) => {
   });
 
   socket.on("leave-document", ({ documentId, user }) => {
-    console.log(`User: ${user} Left the Document: ${documentId}`);
+    console.log(`User: ${user?.name || user} Left the Document: ${documentId}`);
     // Leave the document room
     socket.leave(documentId);
 
@@ -54,11 +56,10 @@ const socketHandler = (socket) => {
         console.log("Saving document: ", documentId);
         deltaQueue[documentId].timer = setTimeout(async () => {
           try {
-            // console.log("================================");
-            // console.log(deltaQueue[documentId]);
             const document = await Document.findById(documentId);
             document.changes.push(...deltaQueue[documentId]);
             await document.save();
+            console.log("Saved document: ", documentId);
             socket.to(documentId).emit("saving-document", false);
             // Clear the queue and timer for this documentId
             delete deltaQueue[documentId];
@@ -86,6 +87,17 @@ const socketHandler = (socket) => {
   socket.on("selection-change", ({ documentId, selection, user }) => {
     // Broadcast the selection change to all users in the document room
     socket.to(documentId).emit("selection-change", { selection, user });
+  });
+
+  socket.on("share-document", async ({ documentId, toEmail, fromEmail }) => {
+    const user = await User.findOne({ email: toEmail });
+    user?.sharedDocuments?.push({
+      sharedBy: fromEmail,
+      document: documentId,
+    });
+    await user.save();
+
+    socket.to(toEmail).emit("share-document", documentId);
   });
 
   socket.on("disconnect", () => {

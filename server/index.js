@@ -15,6 +15,7 @@ const io = require("socket.io")(http, {
 const authRoutes = require("./routes/auth");
 const documentRoutes = require("./routes/document");
 const { socketHandler } = require("./sockets/socketHandler");
+const { socketHandlerNext } = require("./sockets/socketHandlerNext");
 
 app.use(express.json());
 app.use(
@@ -22,6 +23,7 @@ app.use(
     credentials: true,
     origin: [
       "http://localhost:5173",
+      "http://localhost:5174",
       "https://guileless-lebkuchen-42e91f.netlify.app",
     ],
   })
@@ -44,6 +46,7 @@ app.use("/api", authRoutes);
 app.use("/api/documents", documentRoutes);
 
 // Web Sockets
+// io.on("connection", socketHandlerNext);
 io.on("connection", socketHandler);
 
 io.on("disconnect", () => {

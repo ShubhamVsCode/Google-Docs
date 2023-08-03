@@ -80,13 +80,55 @@ async function checkUser(req, res) {
 }
 
 async function getUser(req, res) {
+  const { withDocument } = req.query;
+
   if (!req.userId) {
     return res.status(403).json({ message: "User not logged in" });
   }
 
-  const user = await User.findById(req.userId).select("-password");
+  try {
+    let user;
 
-  return res.json({ message: "User found!", user: user });
+    if (withDocument) {
+      user = await User.findById(req.userId)
+        .select("-password")
+        .populate("documents")
+        .populate("sharedDocuments.document")
+        .select("sharedDocuments.document.title");
+    } else {
+      user = await User.findById(req.userId).select("-password");
+    }
+
+    console.log(user);
+    return res.json({ message: "User found!", user: user });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to get user", error });
+  }
 }
 
-module.exports = { register, login, logout, checkUser, getUser };
+// getSharedDocuments
+async function getSharedDocuments(req, res) {
+  if (!req.userId) {
+    return res.status(403).json({ message: "User not logged in" });
+  }
+
+  try {
+    const user = await User.findById(req.userId).populate("sharedDocuments");
+    const sharedDocuments = user.sharedDocuments;
+
+    return res.json({ message: "Shared documents found!", sharedDocuments });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to get shared documents", error });
+  }
+}
+
+module.exports = {
+  register,
+  login,
+  logout,
+  checkUser,
+  getUser,
+  getSharedDocuments,
+};

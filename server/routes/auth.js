@@ -9,5 +9,10 @@ router.post("/login", authController.login);
 router.get("/logout", authController.logout);
 router.get("/checkUser", authenticate, authController.checkUser);
 router.get("/user", authenticate, authController.getUser);
+router.get(
+  "/user/sharedDocuments",
+  authenticate,
+  authController.getSharedDocuments
+);
 
 module.exports = router;

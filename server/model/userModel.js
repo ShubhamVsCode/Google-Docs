@@ -17,7 +17,18 @@ const UserSchema = new mongoose.Schema({
   },
   documents: {
     type: [mongoose.Schema.Types.ObjectId],
-    ref: "document",
+    ref: "Document",
+  },
+  sharedDocuments: {
+    type: [
+      {
+        sharedBy: String,
+        document: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Document",
+        },
+      },
+    ],
   },
 });
 

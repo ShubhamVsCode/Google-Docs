@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { AXIOS_API } from "../lib/axiosAPI";
 
@@ -11,6 +11,7 @@ const Navbar = () => {
     await AXIOS_API.get("/logout")
       .then((res) => res.data)
       .then((res) => {
+        console.log(res);
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         setUserToken("");
@@ -20,6 +21,7 @@ const Navbar = () => {
         });
       })
       .catch((err) => {
+        console.log(err);
         return navigate("/login", {
           replace: true,
         });
@@ -27,7 +29,7 @@ const Navbar = () => {
   };
 
   const getUser = async () => {
-    const user = await AXIOS_API.get("/user")
+    await AXIOS_API.get("/user")
       .then((res) => {
         setUser(res.data?.user);
         localStorage.setItem("user", JSON.stringify(res.data?.user));

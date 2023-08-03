@@ -3,8 +3,21 @@ import { useState, useEffect, useRef } from "react";
 import ReactQuill from "react-quill";
 import Delta from "quill-delta";
 import "react-quill/dist/quill.snow.css";
+import { AXIOS_API } from "../lib/axiosAPI";
+import ShareDocumentModal from "./ShareDocumentModal";
 
 const SAVE_DURATION_MS = 2000;
+const TOOLBAR_OPTIONS = [
+  [{ header: [1, 2, 3, 4, 5, 6, false] }],
+  [{ font: [] }],
+  [{ list: "ordered" }, { list: "bullet" }],
+  ["bold", "italic", "underline"],
+  [{ color: [] }, { background: [] }],
+  [{ script: "sub" }, { script: "super" }],
+  [{ align: [] }],
+  ["image", "blockquote", "code-block"],
+  ["clean"],
+];
 
 const NewDocument = ({ documentId }) => {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
@@ -16,14 +29,19 @@ const NewDocument = ({ documentId }) => {
   const [isSaving, setIsSaving] = useState(false);
   const quillRef = useRef();
 
+  const [title, setTitle] = useState("");
+  const [prevTitle, setPrevTitle] = useState("");
+
+  // shareDocumentmodal
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
   const handleInputChange = (value, delta, source, quill) => {
     if (source !== "user") return;
     socket?.emit("text-change", { delta, documentId });
-    // setChanges((prev) => [...prev, delta]);
+    socket?.emit("current-value", value);
   };
 
   useEffect(() => {
-    // const s = io("http://localhost:3000");
     const s = io(
       process.env.NODE_ENV === "development"
         ? "http://localhost:3000"
@@ -52,9 +70,13 @@ const NewDocument = ({ documentId }) => {
     });
 
     socket.on("document-changes", (changes) => {
-      const merged = mergeDeltas(changes);
+      // const merged = mergeDeltas(changes);
       console.log("Document Change Socket---------------");
-      quillRef?.current?.getEditor()?.updateContents(merged);
+      // quillRef?.current?.getEditor()?.updateContents(merged);
+
+      changes?.map((change) =>
+        quillRef?.current?.getEditor()?.updateContents(change)
+      );
     });
 
     socket.on("text-change", (delta) => {
@@ -62,7 +84,17 @@ const NewDocument = ({ documentId }) => {
       console.log("Text Change Socket---------------");
       // setChanges((prev) => [...prev, delta]);
     });
-  }, [content, quillRef, quillEditor, socket]);
+
+    const leftDoc = () => socket.emit("leave-document", { documentId, user });
+
+    window.addEventListener("beforeunload", leftDoc);
+
+    return () => {
+      console.log("Component Unmounted Successfully");
+      socket.emit("leave-document", { documentId, user });
+      window.removeEventListener("beforeunload", leftDoc);
+    };
+  }, [quillRef, socket, documentId, user]);
 
   useEffect(() => {
     const quillEditor = quillRef.current.getEditor();
@@ -88,35 +120,115 @@ const NewDocument = ({ documentId }) => {
   //   };
   // }, [changes, socket, SAVE_DURATION_MS]);
 
-  // function addUsers(u) {
-  //   setUsers((prev) => {
-  //     const filteredUsers = prev.filter((u) => u._id !== user?._id);
-  //     return [...filteredUsers, user];
-  //   });
-  // }
+  function addUsers(newUser) {
+    setUsers((prevUsers) => {
+      const filteredUsers = prevUsers.filter(
+        (user) => user._id !== newUser?._id
+      );
+      return [...filteredUsers, newUser];
+    });
+  }
 
-  // useEffect(() => {
-  //   if (!socket) return;
-  //   socket?.on("user-joined", addUsers);
+  function removeUsers(user) {
+    console.log(user);
+  }
 
-  //   return () => {
-  //     // setUsers([]);
-  //   };
-  // }, [socket]);
+  useEffect(() => {
+    if (!socket) return;
+    socket?.on("user-joined", addUsers);
+    socket?.on("leave-document", removeUsers);
 
-  // useEffect(() => {
-  //   console.log(socket);
-  // }, [socket]);
+    return () => {
+      setUsers([]);
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket?.on("saving-document", (save) => {
+      setIsSaving(save);
+    });
+    socket?.on("leave-document", removeUsers);
+
+    return () => {
+      setUsers([]);
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    AXIOS_API.get(`/documents/${documentId}`)
+      .then((res) => {
+        setTitle(res?.data?.document?.title);
+        setPrevTitle(res?.data?.document?.title);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  }, []);
+
+  function shareDocument(email) {
+    console.log("Sharing Document to:", email);
+    if (!email) return;
+    socket?.emit("share-document", {
+      documentId,
+      toEmail: email,
+      fromEmail: user?.email,
+    });
+  }
 
   return (
     <main>
-      <div className="max-w-6xl m-auto border-black border rounded-lg">
+      <h2 className="text-2xl text-center my-2">
+        <input
+          type="text"
+          value={title}
+          className="text-center hover:border border border-transparent hover:border-black/40 rounded px-1"
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => {
+            if (prevTitle == title) return;
+
+            AXIOS_API.put(`/documents/${documentId}`, {
+              title: title,
+            })
+              .then((res) => {
+                setPrevTitle(res?.data?.document?.title);
+              })
+              .catch((err) => {
+                console.log(err);
+              });
+          }}
+        />
+      </h2>
+
+      <button
+        onClick={() => setShareModalOpen(true)}
+        className="absolute top-[68px] right-20 bg-green-100 flex items-center px-4 py-2 rounded-full gap-1 border border-green-400"
+      >
+        <img
+          className="object-contain w-4 rotate-180"
+          src="/share-button.png"
+          alt="Share Icon"
+        />
+        Share
+      </button>
+
+      <ShareDocumentModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        shareDocumentFunction={shareDocument}
+      />
+
+      <div className="max-w-6xl m-auto border-black/30 border shadow-xl rounded-lg">
         {/* {isSaving ? "Saving changes..." : "Saved changes"} */}
+
+        {/* {users.reduce(
+          (prev, current) => prev + ", " + current?.name,
+          user?.name
+        )} */}
 
         <ReactQuill
           theme="snow"
           className="min-h-screen"
-          value={content}
           //   onChangeSelection={(selection, source, editor) => {
           //     if (source === "user") {
           //       console.log("Selection", selection);
@@ -125,25 +237,28 @@ const NewDocument = ({ documentId }) => {
           onChange={handleInputChange}
           ref={quillRef}
           id="docs"
+          modules={{
+            toolbar: TOOLBAR_OPTIONS,
+          }}
         />
       </div>
     </main>
   );
 };
 
-function mergeDeltas(deltasArray) {
-  if (deltasArray.length === 0) {
-    return new Delta(); // Return an empty delta if the array is empty
-  }
+// function mergeDeltas(deltasArray) {
+//   if (deltasArray.length === 0) {
+//     return new Delta(); // Return an empty delta if the array is empty
+//   }
 
-  let mergedDelta = new Delta(deltasArray[0]); // Initialize the mergedDelta with the first delta
+//   let mergedDelta = new Delta(deltasArray[0]); // Initialize the mergedDelta with the first delta
 
-  for (let i = 1; i < deltasArray.length; i++) {
-    const nextDelta = new Delta(deltasArray[i]);
-    mergedDelta = mergedDelta.compose(nextDelta); // Merge the next delta into the current mergedDelta
-  }
+//   for (let i = 1; i < deltasArray.length; i++) {
+//     const nextDelta = new Delta(deltasArray[i]);
+//     mergedDelta = mergedDelta.compose(nextDelta); // Merge the next delta into the current mergedDelta
+//   }
 
-  return mergedDelta;
-}
+//   return mergedDelta;
+// }
 
 export default NewDocument;
